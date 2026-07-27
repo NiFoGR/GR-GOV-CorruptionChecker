@@ -30,7 +30,13 @@ UA = "GR-GOV-CorruptionChecker/0.1 (+https://github.com/NiFoGR/GR-GOV-Corruption
 
 AWARD_TYPE = "Δ.1"       # ΑΝΑΘΕΣΗ ΕΡΓΩΝ / ΠΡΟΜΗΘΕΙΩΝ / ΥΠΗΡΕΣΙΩΝ / ΜΕΛΕΤΩΝ
 PAGE_SIZE = 500
-DAYS = int(os.environ.get("SCAN_DAYS", "120"))
+
+# 30 days keeps a nightly run to a few minutes. A 120-day window took over
+# 15 minutes against the live API, which is wasteful to repeat every night.
+# Raise SCAN_DAYS for a one-off deeper pass; note the splitting rule's 90-day
+# look-back can only see as far back as the window actually fetched.
+DAYS = int(os.environ.get("SCAN_DAYS", "30"))
+MAX_RECORDS = int(os.environ.get("SCAN_MAX_RECORDS", "60000"))
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 RAW = ROOT / "data" / "raw"
@@ -74,12 +80,17 @@ def fetch_awards(from_date, to_date):
             sys.exit(f"ABORT: type filter ignored, got types {wrong}. Refusing to ingest.")
 
         out.extend(decisions)
-        print(f"  page {page}: {len(decisions)} decisions ({len(out)}/{total})", flush=True)
+        if page % 10 == 0 or len(decisions) < PAGE_SIZE:
+            print(f"  page {page}: {len(out)}/{total} decisions", flush=True)
 
         page += 1
-        if not decisions or len(out) >= total or page > 200:
+        if not decisions or len(out) >= total:
             break
-        time.sleep(0.3)
+        if len(out) >= MAX_RECORDS:
+            print(f"  stopping at {len(out)} records (SCAN_MAX_RECORDS); "
+                  f"{total} exist in this window", flush=True)
+            break
+        time.sleep(0.2)
     return out
 
 

@@ -29,6 +29,7 @@ NEAR_BAND = 0.90          # flag awards in [90%, 100%] of a ceiling
 SPLIT_WINDOW_DAYS = 90    # look-back for aggregating related awards
 CONCENTRATION_MIN = 5     # awards to one supplier from one buyer before flagging
 CONCENTRATION_SHARE = 0.5 # ...or this share of the buyer's total value
+MAX_PUBLISHED_FLAGS = 2000  # keep the static JSON small; stats report the true total
 
 
 def ts_to_date(ms):
@@ -238,6 +239,12 @@ def main():
 
     flags.sort(key=lambda f: (SEVERITY_ORDER.get(f["severity"], 9), -(f.get("amount") or 0)))
 
+    # The site is a static page, so every visitor downloads this file whole.
+    # Publish the most serious flags and report the true total in stats.
+    published = flags[:MAX_PUBLISHED_FLAGS]
+    if len(flags) > len(published):
+        print(f"  publishing top {len(published)} of {len(flags)} flags to keep the page light")
+
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps({
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -245,14 +252,16 @@ def main():
         "stats": {
             "decisions": len(records),
             "flags": len(flags),
+            "flags_published": len(published),
             "total_amount": round(sum(r["amount"] for r in records), 2),
             "organisations": len({r["buyer_id"] for r in records}),
             "suppliers": len({r["supplier_afm"] for r in records if r["supplier_afm"]}),
         },
-        "flags": flags,
+        "flags": published,
     }, ensure_ascii=False), encoding="utf-8")
 
-    print(f"\nWrote {len(flags)} flags to {OUT.relative_to(ROOT)}")
+    size_kb = OUT.stat().st_size / 1024
+    print(f"\nWrote {len(published)} flags to {OUT.relative_to(ROOT)} ({size_kb:.0f} KB)")
 
 
 if __name__ == "__main__":

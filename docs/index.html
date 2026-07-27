@@ -148,10 +148,10 @@ const int = n => (n == null ? '—' : n.toLocaleString('en-GB'));
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-let FLAGS = [];
+let FLAGS = [], STATS = {};
 
 function renderStats(d) {
-  const s = d.stats || {};
+  const s = STATS = d.stats || {};
   document.getElementById('stats').innerHTML = [
     [int(s.decisions), 'decisions screened'],
     [int(s.flags), 'flags raised'],
@@ -175,8 +175,12 @@ function renderRows() {
     (!sev || f.severity === sev) &&
     (!q || `${f.buyer} ${f.supplier} ${f.subject}`.toLowerCase().includes(q)));
 
+  const total = (STATS.flags ?? FLAGS.length);
+  const truncated = total > FLAGS.length
+    ? ` · showing the ${FLAGS.length.toLocaleString('en-GB')} most serious of ${total.toLocaleString('en-GB')} total flags`
+    : '';
   document.getElementById('count').textContent =
-    `Showing ${hits.length.toLocaleString('en-GB')} of ${FLAGS.length.toLocaleString('en-GB')} flags`;
+    `Showing ${hits.length.toLocaleString('en-GB')} of ${FLAGS.length.toLocaleString('en-GB')} flags${truncated}`;
 
   const tbody = document.getElementById('rows');
   if (!hits.length) {
