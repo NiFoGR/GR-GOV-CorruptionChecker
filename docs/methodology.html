@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Methodology — Greek Public Spending Watch</title>
+<style>
+  :root { --bg:#fff; --panel:#f6f7f9; --border:#e2e5ea; --text:#14171c; --muted:#626b78; --accent:#1a56b8; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1216; --panel:#171b21; --border:#262c35; --text:#e6e9ee; --muted:#939eae; --accent:#6ba3f5; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font:15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+  header { border-bottom:1px solid var(--border); padding:26px 0; margin-bottom:32px; }
+  h1 { margin:0; font-size:21px; }
+  h2 { font-size:17px; margin:34px 0 10px; }
+  h3 { font-size:15px; margin:24px 0 6px; }
+  p, li { color:var(--text); }
+  a { color:var(--accent); }
+  .note { background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--accent);
+          border-radius:6px; padding:14px 16px; margin:20px 0; font-size:14px; }
+  code { background:var(--panel); border:1px solid var(--border); border-radius:4px;
+         padding:1px 5px; font-size:13px; }
+  .tablewrap { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:14px; margin:14px 0; }
+  th, td { text-align:left; padding:9px 11px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { background:var(--panel); font-size:12px; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); }
+  footer { border-top:1px solid var(--border); margin-top:44px; padding:20px 0 40px; color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+
+<header><div class="wrap">
+  <h1>Methodology</h1>
+  <p style="margin:6px 0 0;color:var(--muted);font-size:14px;">
+    <a href="index.html">← Back to the flags</a></p>
+</div></header>
+
+<div class="wrap">
+
+<div class="note">
+  <strong>A flag is a question, not an accusation.</strong>
+  This site applies statistical rules to public records. A flagged award is one that
+  fits a pattern which <em>can</em> indicate a problem — and very often does not.
+  Most flagged items have ordinary explanations: routine purchasing, an urgent
+  repair, a genuinely small local market with one credible supplier. Nothing here
+  is a finding of wrongdoing by any person or company.
+</div>
+
+<h2>Where the data comes from</h2>
+<p>
+  Every spending decision by a Greek public body must be published on
+  <a href="https://diavgeia.gov.gr">Διαύγεια (Diavgeia)</a> to be legally valid.
+  We read its open API — no scraping, no private data — and use decision type
+  <code>Δ.1</code>, <em>ΑΝΑΘΕΣΗ ΕΡΓΩΝ / ΠΡΟΜΗΘΕΙΩΝ / ΥΠΗΡΕΣΙΩΝ / ΜΕΛΕΤΩΝ</em>
+  (awards of works, supplies, services and studies). Each record supplies the
+  awarding body, the supplier and their tax number, the amount, and a CPV
+  product code. Diavgeia data is published under CC-BY.
+</p>
+<p>
+  The scan runs daily and covers a rolling recent window. Every figure on this
+  site links back to the original document so you can verify it directly.
+</p>
+
+<h2>The rules</h2>
+
+<h3>This buyer's prices cluster below the limit</h3>
+<p>
+  Greek law (art. 118, N.4412/2016, as amended by N.4782/2021) lets a public body
+  award a contract directly, without a tender, up to €30,000 excluding VAT. Above
+  that, competition is required.
+</p>
+<p>
+  A single award at €29,500 is unremarkable — plenty of real work costs that. What
+  is not unremarkable is a body where a quarter or more of all awards land in the
+  last 10% below the ceiling, at three times or more the national rate. That is
+  the ceiling setting the price rather than the work setting it. We compute the
+  national rate from the same scan rather than assuming a figure, so the
+  comparison moves with the data.
+</p>
+
+<h3>Priced just under the direct-award limit</h3>
+<p>
+  Individual awards within 3% of a ceiling. Weak on its own, which is why it is
+  medium severity and confined to the tightest band — it is context for the
+  buyer-level rule above, not a finding in itself.
+</p>
+
+<h3>Repeat awards that together pass the limit</h3>
+<p>
+  Splitting one requirement into several smaller awards to stay under the tender
+  threshold (<em>κατάτμηση</em>) is explicitly prohibited. We group awards by buyer,
+  supplier and CPV class within a 90-day window, and flag groups where each award
+  sits below the ceiling but the total exceeds it.
+</p>
+
+<h3>One supplier dominates this buyer's awards</h3>
+<p>
+  We flag a supplier holding at least five awards from one body <em>and</em> at least
+  half of that body's total award value in the period. Concentration is not
+  misconduct — small municipalities often have few real suppliers — but it is where
+  capture, if present, becomes visible.
+</p>
+
+<h3>Also an exactly round amount</h3>
+<p>
+  Costed quotes rarely land on an exact multiple of €1,000 — but public budgets are
+  written in round figures, so on its own this matches a large share of all awards
+  and tells you nothing. We therefore only report it for awards another rule has
+  already flagged, as a corroborating detail rather than a finding.
+</p>
+
+<h2>Known limitations</h2>
+<ul>
+  <li>
+    <strong>VAT is ambiguous.</strong> The threshold in law is set excluding VAT, but
+    Diavgeia's <code>awardAmount</code> does not reliably state whether the figure it
+    carries includes VAT. We test both the €30,000 and the VAT-inclusive €37,200 band
+    and label which one matched. Some flags will therefore be measuring against the
+    wrong band.
+  </li>
+  <li>
+    <strong>Rolling window, not history.</strong> The API applies a default six-month
+    submission window that silently narrows older date queries, so this covers recent
+    activity rather than multi-year trends.
+  </li>
+  <li>
+    <strong>Awards only.</strong> We currently read award decisions, not payments,
+    contract amendments, or tender notices. An award that was later cancelled or
+    reduced still appears here.
+  </li>
+  <li>
+    <strong>No supplier ownership data.</strong> Without the ΓΕΜΗ business registry we
+    cannot see incorporation dates, directors, or shared addresses between bidders —
+    the signals that distinguish a coincidence from a pattern.
+  </li>
+  <li>
+    <strong>Rules are untuned.</strong> The thresholds here are reasoned starting
+    points, not values calibrated against confirmed cases. Expect false positives.
+  </li>
+</ul>
+
+<h2>Privacy</h2>
+<p>
+  We report awards to <em>legal persons</em> — companies and organisations. Where a
+  record names a natural person, that is a sole trader acting in a commercial
+  capacity, published by the State as a condition of the award's validity. We do not
+  republish grants, benefits, or salaries paid to individuals, and we do not build
+  profiles of named officials.
+</p>
+
+<h2 id="corrections">Corrections and right of reply</h2>
+<p>
+  If you are named here and believe something is wrong or misleading, we want to fix
+  it. Open an issue on
+  <a href="https://github.com/NiFoGR/GR-GOV-CorruptionChecker/issues">the project's GitHub</a>
+  with the ΑΔΑ of the decision. Corrections are applied to the rules, not just the
+  page, so the same error stops recurring. A response explaining a flagged award will
+  be published next to it on request.
+</p>
+
+<h2>Open source</h2>
+<p>
+  Every rule is a readable function in
+  <a href="https://github.com/NiFoGR/GR-GOV-CorruptionChecker/blob/main/scripts/analyze.py"><code>scripts/analyze.py</code></a>.
+  If you think a rule is wrong, you can read it, run it, and send a fix.
+</p>
+
+</div>
+
+<footer><div class="wrap">
+  Source data: <a href="https://diavgeia.gov.gr">Διαύγεια</a>, CC-BY.
+  Independent, non-commercial, not affiliated with the Greek State.
+</div></footer>
+
+</body>
+</html>

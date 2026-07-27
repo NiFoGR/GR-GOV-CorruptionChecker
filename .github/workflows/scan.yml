@@ -1,0 +1,60 @@
+name: Scan and publish
+
+on:
+  schedule:
+    - cron: '17 3 * * *'   # daily, off the hour so we don't pile onto :00
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/**'
+      - 'docs/**'
+      - '.github/workflows/scan.yml'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch decisions from Diavgeia
+        run: python scripts/fetch.py
+
+      - name: Apply red-flag rules
+        run: python scripts/analyze.py
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/data/flags.json
+          git diff --staged --quiet || git commit -m "Update scan results [skip ci]"
+          git push
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    # Pages publishes from the default branch only.
+    if: github.ref == 'refs/heads/main'
+    needs: scan
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

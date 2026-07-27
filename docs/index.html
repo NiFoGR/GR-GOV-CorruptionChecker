@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Greek Public Spending Watch</title>
+<meta name="description" content="Automated red-flag analysis of Greek government spending decisions published on Diavgeia.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>%F0%9F%94%8D</text></svg>">
+<style>
+  :root {
+    --bg: #ffffff;
+    --panel: #f6f7f9;
+    --border: #e2e5ea;
+    --text: #14171c;
+    --muted: #626b78;
+    --accent: #1a56b8;
+    --high: #b42318;
+    --high-bg: #fef3f2;
+    --med: #b54708;
+    --med-bg: #fffaeb;
+    --low: #175cd3;
+    --low-bg: #eff8ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1216; --panel: #171b21; --border: #262c35; --text: #e6e9ee;
+      --muted: #939eae; --accent: #6ba3f5;
+      --high: #ff8a7a; --high-bg: #2a1512; --med: #f5b955; --med-bg: #2a1f0e;
+      --low: #7cb6ff; --low-bg: #101d2e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+  header { border-bottom: 1px solid var(--border); padding: 28px 0 22px; }
+  h1 { margin: 0 0 6px; font-size: 22px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0; }
+  .updated { color: var(--muted); font-size: 12.5px; margin-top: 10px; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 22px 0; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .stat .n { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+  .stat .l { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+
+  .notice {
+    background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+    border-radius: 6px; padding: 13px 16px; margin: 20px 0; font-size: 13.5px; color: var(--muted);
+  }
+  .notice strong { color: var(--text); }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0 14px; }
+  input, select {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 11px; font: inherit; font-size: 14px;
+  }
+  input { flex: 1; min-width: 200px; }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+  .tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 860px; }
+  th, td { text-align: left; padding: 10px 12px; vertical-align: top; }
+  th { background: var(--panel); font-weight: 600; font-size: 12px; text-transform: uppercase;
+       letter-spacing: 0.03em; color: var(--muted); white-space: nowrap; }
+  td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td.flag { min-width: 190px; }
+  td.date { white-space: nowrap; }
+
+  /* Each flag is a pair of rows: the facts, then why it was flagged. */
+  tr.main td { padding-bottom: 6px; }
+  tr.why td { padding-top: 0; padding-bottom: 12px; color: var(--muted); font-size: 12.5px; }
+  tr.why + tr.main td { border-top: 1px solid var(--border); padding-top: 12px; }
+
+  .sev { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px;
+         font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+  .sev.high { color: var(--high); background: var(--high-bg); }
+  .sev.medium { color: var(--med); background: var(--med-bg); }
+  .sev.low { color: var(--low); background: var(--low-bg); }
+
+  a { color: var(--accent); }
+  .subject { color: var(--muted); font-size: 12.5px; display: block; margin-top: 3px; }
+  .empty { padding: 40px 20px; text-align: center; color: var(--muted); }
+
+  footer { border-top: 1px solid var(--border); margin-top: 40px; padding: 22px 0 40px;
+           color: var(--muted); font-size: 13px; }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>Greek Public Spending Watch</h1>
+    <p class="sub">Automated screening of spending decisions published on Διαύγεια (Diavgeia), the Greek government transparency portal.</p>
+    <p class="updated" id="updated">Loading…</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="stats" id="stats"></div>
+
+  <div class="notice">
+    <strong>These are statistical flags, not accusations.</strong>
+    Every item below is a pattern worth a second look — a contract priced just under a
+    legal threshold, or a series of awards that together exceed one. Most have ordinary
+    explanations. Nothing here is evidence of wrongdoing by any person or company.
+    Every row links to the original public document so you can check it yourself.
+  </div>
+
+  <div class="controls">
+    <input type="search" id="q" placeholder="Search buyer, supplier, or subject…" aria-label="Search">
+    <select id="rule" aria-label="Filter by rule"><option value="">All rules</option></select>
+    <select id="sev" aria-label="Filter by severity">
+      <option value="">All severities</option>
+      <option value="high">High</option>
+      <option value="medium">Medium</option>
+      <option value="low">Low</option>
+    </select>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Flag</th><th>Buyer</th><th>Supplier</th>
+          <th class="num">Amount</th><th>Date</th><th>Source</th>
+        </tr>
+      </thead>
+      <tbody id="rows"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </div>
+  <p class="updated" id="count"></p>
+
+</div>
+
+<footer>
+  <div class="wrap">
+    <p>
+      Source data: <a href="https://diavgeia.gov.gr">Διαύγεια</a>, published under CC-BY.
+      This site is an independent, non-commercial analysis and is not affiliated with the Greek State.
+    </p>
+    <p>
+      Method and rule definitions: <a href="methodology.html">methodology</a>.
+      Think something here is wrong? <a href="methodology.html#corrections">Corrections and right of reply</a>.
+    </p>
+  </div>
+</footer>
+
+<script>
+const eur = n => n == null ? '—' : '€' + Math.round(n).toLocaleString('en-GB');
+const int = n => (n == null ? '—' : n.toLocaleString('en-GB'));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let FLAGS = [], STATS = {};
+
+function renderStats(d) {
+  const s = STATS = d.stats || {};
+  document.getElementById('stats').innerHTML = [
+    [int(s.decisions), 'decisions screened'],
+    [int(s.flags), 'flags raised'],
+    [eur(s.total_amount), 'total value screened'],
+    [int(s.organisations), 'public bodies'],
+  ].map(([n, l]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+
+  const w = d.window || {};
+  document.getElementById('updated').textContent =
+    `Covering ${w.from || '?'} to ${w.to || '?'} · last updated ${
+      d.generated_at ? new Date(d.generated_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '?'}`;
+}
+
+function renderRows() {
+  const q = document.getElementById('q').value.toLowerCase().trim();
+  const rule = document.getElementById('rule').value;
+  const sev = document.getElementById('sev').value;
+
+  const hits = FLAGS.filter(f =>
+    (!rule || f.rule === rule) &&
+    (!sev || f.severity === sev) &&
+    (!q || `${f.buyer} ${f.supplier} ${f.subject}`.toLowerCase().includes(q)));
+
+  const total = (STATS.flags ?? FLAGS.length);
+  const truncated = total > FLAGS.length
+    ? ` · showing the ${FLAGS.length.toLocaleString('en-GB')} most serious of ${total.toLocaleString('en-GB')} total flags`
+    : '';
+  document.getElementById('count').textContent =
+    `Showing ${hits.length.toLocaleString('en-GB')} of ${FLAGS.length.toLocaleString('en-GB')} flags${truncated}`;
+
+  const tbody = document.getElementById('rows');
+  if (!hits.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">No flags match these filters.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = hits.slice(0, 500).map(f => `
+    <tr class="main">
+      <td class="flag"><span class="sev ${esc(f.severity)}">${esc(f.severity)}</span>
+          <span class="subject">${esc(f.rule_label || f.rule)}</span></td>
+      <td>${esc(f.buyer)}</td>
+      <td>${esc(f.supplier || '—')}</td>
+      <td class="num">${eur(f.amount)}</td>
+      <td class="date">${esc(f.date || '—')}</td>
+      <td>${f.ada ? `<a href="https://diavgeia.gov.gr/doc/${encodeURIComponent(f.ada)}"
+            target="_blank" rel="noopener">${esc(f.ada)}</a>` : '—'}
+          ${f.subject ? `<span class="subject">${esc(f.subject.slice(0, 90))}</span>` : ''}</td>
+    </tr>
+    <tr class="why"><td colspan="6">${esc(f.detail || '')}</td></tr>`).join('');
+}
+
+fetch('data/flags.json')
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(d => {
+    FLAGS = d.flags || [];
+    renderStats(d);
+
+    const rules = [...new Set(FLAGS.map(f => f.rule))].sort();
+    const sel = document.getElementById('rule');
+    for (const r of rules) {
+      const label = (FLAGS.find(f => f.rule === r) || {}).rule_label || r;
+      sel.insertAdjacentHTML('beforeend', `<option value="${esc(r)}">${esc(label)}</option>`);
+    }
+
+    for (const id of ['q', 'rule', 'sev']) {
+      document.getElementById(id).addEventListener('input', renderRows);
+    }
+    renderRows();
+  })
+  .catch(e => {
+    document.getElementById('updated').textContent = 'No data yet — the first scan has not run.';
+    document.getElementById('rows').innerHTML =
+      '<tr><td colspan="6" class="empty">No data yet. The scan runs daily via GitHub Actions.</td></tr>';
+    console.error(e);
+  });
+</script>
+
+</body>
+</html>
