@@ -25,10 +25,20 @@ THRESHOLD = 30_000.0
 VAT_RATE = 0.24
 THRESHOLD_INC_VAT = THRESHOLD * (1 + VAT_RATE)
 
-NEAR_BAND = 0.90          # flag awards in [90%, 100%] of a ceiling
+NEAR_BAND = 0.90          # an award in [90%, 100%] of a ceiling counts as "near" it
+TIGHT_BAND = 0.97         # ...and this close is worth reporting on its own
 SPLIT_WINDOW_DAYS = 90    # look-back for aggregating related awards
 CONCENTRATION_MIN = 5     # awards to one supplier from one buyer before flagging
 CONCENTRATION_SHARE = 0.5 # ...or this share of the buyer's total value
+
+# Bunching is a property of a BUYER, not of a single award: one contract priced
+# at €28k means nothing, but a body whose awards pile up just under the ceiling
+# far more than the national average is a real signal. Measured against the
+# observed national rate rather than a guessed constant.
+BUNCHING_MIN_AWARDS = 10
+BUNCHING_MIN_SHARE = 0.25
+BUNCHING_MULTIPLE = 3.0
+
 MAX_PUBLISHED_FLAGS = 2000  # keep the static JSON small; stats report the true total
 
 
@@ -78,27 +88,75 @@ def normalise(payload):
 
 # ---------------------------------------------------------------- rules
 
-def rule_threshold_proximity(records):
-    """Awards priced just under a direct-award ceiling.
+def near_ceiling(amount):
+    """Which direct-award ceiling this amount sits just under, if any."""
+    for ceiling, label in ((THRESHOLD, "excl. VAT"), (THRESHOLD_INC_VAT, "incl. VAT")):
+        if ceiling * NEAR_BAND <= amount <= ceiling:
+            return ceiling, label
+    return None, None
 
-    Bunching immediately below a legal ceiling is the strongest single
-    indicator in this dataset: it suggests the price was chosen to stay
-    inside the direct-award regime rather than derived from the work.
+
+def rule_threshold_bunching(records):
+    """Buyers whose awards pile up just below a direct-award ceiling.
+
+    This is the real signal. A single award at €29,500 is unremarkable; a body
+    where a quarter of all awards land in the last 10% below the ceiling, at
+    several times the national rate, has prices being set by the legal limit
+    rather than by the work. Compared against the observed national rate so the
+    baseline moves with the data instead of being assumed.
+    """
+    if not records:
+        return []
+    national = sum(1 for r in records if near_ceiling(r["amount"])[0] is not None) / len(records)
+
+    by_buyer = defaultdict(list)
+    for r in records:
+        by_buyer[r["buyer_id"]].append(r)
+
+    flags = []
+    for _, items in by_buyer.items():
+        if len(items) < BUNCHING_MIN_AWARDS:
+            continue
+        near = [x for x in items if near_ceiling(x["amount"])[0] is not None]
+        share = len(near) / len(items)
+        if share >= BUNCHING_MIN_SHARE and (national == 0 or share >= national * BUNCHING_MULTIPLE):
+            worst = max(near, key=lambda x: x["amount"])
+            flags.append({
+                **base_flag(worst),
+                "rule": "threshold_bunching",
+                "rule_label": "This buyer's prices cluster below the limit",
+                "severity": "high",
+                "detail": (f"{len(near)} of this body's {len(items)} awards ({share:.0%}) fall in the "
+                           f"last 10% below a direct-award ceiling, against a national rate of "
+                           f"{national:.1%} — {share / national:.1f}x the average."
+                           if national else f"{len(near)} of {len(items)} awards sit just below a ceiling."),
+            })
+    return flags
+
+
+def rule_threshold_proximity(records):
+    """Individual awards priced within 3% of a direct-award ceiling.
+
+    Weak on its own — a contract can legitimately cost €29,500 — so this is
+    reported at medium severity and deliberately kept to the tightest band.
+    The buyer-level bunching rule above is what carries real weight.
     """
     flags = []
     for r in records:
-        for ceiling, label in ((THRESHOLD, "excl. VAT"), (THRESHOLD_INC_VAT, "incl. VAT")):
-            if ceiling * NEAR_BAND <= r["amount"] <= ceiling:
-                pct = r["amount"] / ceiling
-                flags.append({
-                    **base_flag(r),
-                    "rule": "threshold_proximity",
-                    "rule_label": "Priced just under the direct-award limit",
-                    "severity": "high" if pct >= 0.97 else "medium",
-                    "detail": (f"€{r['amount']:,.0f} is {pct:.1%} of the €{ceiling:,.0f} "
-                               f"direct-award ceiling ({label})."),
-                })
-                break
+        ceiling, label = near_ceiling(r["amount"])
+        if ceiling is None:
+            continue
+        pct = r["amount"] / ceiling
+        if pct < TIGHT_BAND:
+            continue
+        flags.append({
+            **base_flag(r),
+            "rule": "threshold_proximity",
+            "rule_label": "Priced just under the direct-award limit",
+            "severity": "medium",
+            "detail": (f"€{r['amount']:,.0f} is {pct:.1%} of the €{ceiling:,.0f} "
+                       f"direct-award ceiling ({label})."),
+        })
     return flags
 
 
@@ -208,9 +266,10 @@ def base_flag(r):
 # Primary rules stand alone. Corroborating rules only fire on awards a primary
 # rule already flagged, so they add detail instead of noise.
 RULES = [
-    rule_threshold_proximity,
+    rule_threshold_bunching,
     rule_contract_splitting,
     rule_supplier_concentration,
+    rule_threshold_proximity,
 ]
 CORROBORATING_RULES = [
     rule_round_number,
@@ -256,6 +315,9 @@ def main():
             "total_amount": round(sum(r["amount"] for r in records), 2),
             "organisations": len({r["buyer_id"] for r in records}),
             "suppliers": len({r["supplier_afm"] for r in records if r["supplier_afm"]}),
+            "national_near_ceiling_rate": round(
+                sum(1 for r in records if near_ceiling(r["amount"])[0] is not None) / len(records), 4
+            ) if records else 0,
         },
         "flags": published,
     }, ensure_ascii=False), encoding="utf-8")

@@ -38,7 +38,8 @@ python -m http.server -d docs
 
 | Rule | What it looks for |
 |---|---|
-| `threshold_proximity` | Awards priced in the top 10% below the €30,000 direct-award ceiling |
+| `threshold_bunching` | Buyers with ≥25% of awards just below the €30,000 direct-award ceiling, at ≥3x the national rate computed from the same scan |
+| `threshold_proximity` | Individual awards within 3% of the ceiling — context, not a finding |
 | `contract_splitting` | Same buyer + supplier + CPV class within 90 days, each below the ceiling but together above it (*κατάτμηση*, explicitly prohibited) |
 | `supplier_concentration` | One supplier holding ≥5 awards and ≥50% of a buyer's award value |
 | `round_number` | Exact multiples of €1,000 — corroborating only, reported solely on awards another rule already flagged, since public budgets are routinely round |
