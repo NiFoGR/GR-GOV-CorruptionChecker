@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Greek Public Spending Watch</title>
 <meta name="description" content="Automated red-flag analysis of Greek government spending decisions published on Diavgeia.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>%F0%9F%94%8D</text></svg>">
 <style>
   :root {
     --bg: #ffffff;
@@ -59,12 +60,18 @@
   input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 
   .tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
-  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
-  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 860px; }
+  th, td { text-align: left; padding: 10px 12px; vertical-align: top; }
   th { background: var(--panel); font-weight: 600; font-size: 12px; text-transform: uppercase;
        letter-spacing: 0.03em; color: var(--muted); white-space: nowrap; }
-  tbody tr:last-child td { border-bottom: none; }
   td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td.flag { min-width: 190px; }
+  td.date { white-space: nowrap; }
+
+  /* Each flag is a pair of rows: the facts, then why it was flagged. */
+  tr.main td { padding-bottom: 6px; }
+  tr.why td { padding-top: 0; padding-bottom: 12px; color: var(--muted); font-size: 12.5px; }
+  tr.why + tr.main td { border-top: 1px solid var(--border); padding-top: 12px; }
 
   .sev { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px;
          font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
@@ -189,17 +196,18 @@ function renderRows() {
   }
 
   tbody.innerHTML = hits.slice(0, 500).map(f => `
-    <tr>
-      <td><span class="sev ${esc(f.severity)}">${esc(f.severity)}</span>
+    <tr class="main">
+      <td class="flag"><span class="sev ${esc(f.severity)}">${esc(f.severity)}</span>
           <span class="subject">${esc(f.rule_label || f.rule)}</span></td>
       <td>${esc(f.buyer)}</td>
       <td>${esc(f.supplier || '—')}</td>
       <td class="num">${eur(f.amount)}</td>
-      <td>${esc(f.date || '—')}</td>
+      <td class="date">${esc(f.date || '—')}</td>
       <td>${f.ada ? `<a href="https://diavgeia.gov.gr/doc/${encodeURIComponent(f.ada)}"
             target="_blank" rel="noopener">${esc(f.ada)}</a>` : '—'}
-          ${f.subject ? `<span class="subject">${esc(f.subject.slice(0, 110))}</span>` : ''}</td>
-    </tr>`).join('');
+          ${f.subject ? `<span class="subject">${esc(f.subject.slice(0, 90))}</span>` : ''}</td>
+    </tr>
+    <tr class="why"><td colspan="6">${esc(f.detail || '')}</td></tr>`).join('');
 }
 
 fetch('data/flags.json')

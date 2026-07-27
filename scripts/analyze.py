@@ -120,16 +120,23 @@ def rule_threshold_bunching(records):
         near = [x for x in items if near_ceiling(x["amount"])[0] is not None]
         share = len(near) / len(items)
         if share >= BUNCHING_MIN_SHARE and (national == 0 or share >= national * BUNCHING_MULTIPLE):
-            worst = max(near, key=lambda x: x["amount"])
+            example = max(near, key=lambda x: x["amount"])
+            near_total = sum(x["amount"] for x in near)
             flags.append({
-                **base_flag(worst),
+                **base_flag(example),
                 "rule": "threshold_bunching",
                 "rule_label": "This buyer's prices cluster below the limit",
                 "severity": "high",
-                "detail": (f"{len(near)} of this body's {len(items)} awards ({share:.0%}) fall in the "
-                           f"last 10% below a direct-award ceiling, against a national rate of "
-                           f"{national:.1%} — {share / national:.1f}x the average."
-                           if national else f"{len(near)} of {len(items)} awards sit just below a ceiling."),
+                # The flag is about the buyer, so report the value of the clustered
+                # awards rather than the one example award linked as evidence.
+                "amount": round(near_total, 2),
+                "supplier": None,
+                "detail": (f"{len(near)} of this body's {len(items)} awards ({share:.0%}), worth "
+                           f"€{near_total:,.0f}, fall in the last 10% below a direct-award ceiling — "
+                           f"against a national rate of {national:.1%}, or {share / national:.1f}x the "
+                           f"average. Linked document is one example."
+                           if national else
+                           f"{len(near)} of {len(items)} awards sit just below a ceiling."),
             })
     return flags
 
